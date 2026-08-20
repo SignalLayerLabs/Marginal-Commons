@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -155,4 +156,41 @@ def test_builder_rejects_a_symlinked_source_input(tmp_path: Path) -> None:
     registry.symlink_to("canonical-model-registry-v1.json")
 
     with pytest.raises(CommonsBuildError, match="symlink"):
+        compile_pack(tmp_path, source_commit=source_commit, revision=1)
+
+
+def test_source_commit_ignores_git_replace_for_compile_and_validation(tmp_path: Path) -> None:
+    from tooling.build_pack import canonical_bytes, compile_pack
+    from tooling.validate_commons import CommonsValidationError, validate_repository
+
+    source_commit = _commit_source(tmp_path, [ATOM])
+    aggregate_path = tmp_path / "models" / NAMESPACES[0] / "aggregates.json"
+    aggregate = json.loads(aggregate_path.read_text())
+    aggregate["atoms"][0]["count"] = 999
+    aggregate_path.write_text(json.dumps(aggregate))
+    replacement_commit = _commit_change(tmp_path)
+    _git(tmp_path, "replace", source_commit, replacement_commit)
+
+    compiled = compile_pack(tmp_path, source_commit=source_commit, revision=1)
+    assert compiled["models"][NAMESPACES[0]]["aggregates"][0]["count"] == 1
+
+    forged = compile_pack(tmp_path, source_commit=replacement_commit, revision=1)
+    forged["source_commit"] = source_commit
+    payload = dict(forged)
+    del payload["integrity"]
+    forged["integrity"] = {"sha256": hashlib.sha256(canonical_bytes(payload)).hexdigest()}
+    output = tmp_path / "dist" / "commons-pack-v1.json"
+    output.parent.mkdir()
+    output.write_bytes(canonical_bytes(forged))
+
+    with pytest.raises(CommonsValidationError, match="source_commit|deterministic rebuild"):
+        validate_repository(tmp_path)
+
+
+def test_present_aggregate_document_must_contain_an_atom(tmp_path: Path) -> None:
+    from tooling.build_pack import CommonsBuildError, compile_pack
+
+    source_commit = _commit_source(tmp_path, [])
+
+    with pytest.raises(CommonsBuildError, match="nonempty"):
         compile_pack(tmp_path, source_commit=source_commit, revision=1)

@@ -14,7 +14,12 @@ from typing import Any
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tooling.build_pack import CommonsBuildError, canonical_bytes, compile_pack
+from tooling.build_pack import (
+    CommonsBuildError,
+    canonical_bytes,
+    compile_pack,
+    git_source_environment,
+)
 from validation.schema import ATOM_FIELDS, ValidationError, aggregate_identity, parse_atom
 
 
@@ -152,6 +157,7 @@ def _validate_source_commit(root: Path, source_commit: str) -> None:
     verified = subprocess.run(
         ["git", "-C", str(root), "rev-parse", "--verify", f"{source_commit}^{{commit}}"],
         capture_output=True,
+        env=git_source_environment(root),
         text=True,
         check=False,
     )
@@ -161,6 +167,7 @@ def _validate_source_commit(root: Path, source_commit: str) -> None:
     current = subprocess.run(
         ["git", "-C", str(root), "diff", "--quiet", source_commit, "--", *sources],
         check=False,
+        env=git_source_environment(root),
     )
     if current.returncode != 0:
         raise CommonsValidationError("pack source_commit does not match current source inputs")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -25,6 +26,18 @@ from validation.schema import (
 
 class CommonsBuildError(ValueError):
     """Raised when source data cannot safely become a Commons pack."""
+
+
+def git_source_environment(root: Path) -> dict[str, str]:
+    """Return the fixed environment for every Git source/provenance operation."""
+    return {
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_NO_REPLACE_OBJECTS": "1",
+        "HOME": str(root / ".git-source-home"),
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PATH": os.defpath,
+    }
 
 
 def canonical_bytes(value: object) -> bytes:
@@ -55,6 +68,7 @@ class _GitSource:
             ["git", "-C", str(self.root), *arguments],
             check=False,
             capture_output=True,
+            env=git_source_environment(self.root),
         )
         if result.returncode != 0:
             raise CommonsBuildError("claimed source_commit is not available in this repository")

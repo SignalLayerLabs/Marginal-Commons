@@ -151,6 +151,8 @@ def parse_aggregate_document(value: object, namespaces: Iterable[str]) -> dict[s
     atoms = document["atoms"]
     if not isinstance(atoms, list):
         raise ValidationError("aggregate document atoms must be an array")
+    if not atoms:
+        raise ValidationError("present aggregate document atoms must be nonempty")
     return {
         "schema_version": "1.0",
         "model_namespace": namespace,

@@ -46,15 +46,15 @@ def _write_sources(root: Path, sol_atoms: list[dict[str, object]]) -> str:
     (root / "models").mkdir()
     (root / "models" / "registry-v1.json").write_text(registry)
     (root / "models" / "canonical-model-registry-v1.json").write_text(registry)
-    for namespace in NAMESPACES:
-        destination = root / "models" / namespace / "aggregates.json"
+    if sol_atoms:
+        destination = root / "models" / NAMESPACES[0] / "aggregates.json"
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(
             json.dumps(
                 {
                     "schema_version": "1.0",
-                    "model_namespace": namespace,
-                    "atoms": sol_atoms if namespace == NAMESPACES[0] else [],
+                    "model_namespace": NAMESPACES[0],
+                    "atoms": sol_atoms,
                 }
             )
         )
@@ -106,7 +106,7 @@ def test_pack_builder_keeps_namespaces_isolated_and_stable(tmp_path: Path) -> No
 def test_pack_builder_rejects_a_namespace_mismatch_before_compilation(tmp_path: Path) -> None:
     from tooling.build_pack import CommonsBuildError, compile_pack
 
-    _write_sources(tmp_path, [])
+    _write_sources(tmp_path, [ATOM])
     aggregate_path = tmp_path / "models" / NAMESPACES[0] / "aggregates.json"
     aggregate = json.loads(aggregate_path.read_text())
     aggregate["model_namespace"] = NAMESPACES[1]
