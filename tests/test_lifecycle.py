@@ -19,19 +19,39 @@ def test_validation_artifact_controls_lifecycle_without_count_promotion() -> Non
         "lifecycle": "candidate",
     }
 
-    assert lifecycle_for(aggregate, {}) == "candidate"
-    assert lifecycle_for(aggregate, {"supported": ["tool"]}) == "supported"
-    assert lifecycle_for(aggregate, {"validated": ["tool"]}) == "candidate"
-    assert lifecycle_for(aggregate, {"supported": ["tool"], "validated": ["tool"]}) == "validated"
-    assert lifecycle_for(aggregate, {"promoted": ["tool"]}) == "candidate"
+    namespace = "openai/gpt-5.6-sol"
+    assert lifecycle_for(namespace, aggregate, {}) == "candidate"
+    assert lifecycle_for(namespace, aggregate, {namespace: {"supported": ["tool"]}}) == "supported"
+    assert lifecycle_for(namespace, aggregate, {namespace: {"validated": ["tool"]}}) == "candidate"
     assert (
         lifecycle_for(
+            namespace,
+            aggregate,
+            {namespace: {"supported": ["tool"], "validated": ["tool"]}},
+        )
+        == "validated"
+    )
+    assert lifecycle_for(namespace, aggregate, {namespace: {"promoted": ["tool"]}}) == "candidate"
+    assert (
+        lifecycle_for(
+            namespace,
             aggregate,
             {
-                "supported": ["tool"],
-                "validated": ["tool"],
-                "promoted": ["tool"],
+                namespace: {
+                    "supported": ["tool"],
+                    "validated": ["tool"],
+                    "promoted": ["tool"],
+                }
             },
         )
         == "promoted"
     )
+
+
+def test_validation_artifacts_cannot_advance_another_model_namespace() -> None:
+    from validation.lifecycle import lifecycle_for
+
+    aggregate = {"action_kind": "tool", "count": 1000}
+    artifacts = {"openai/gpt-5.6-sol": {"supported": ["tool"]}}
+
+    assert lifecycle_for("openai/gpt-5.6-terra", aggregate, artifacts) == "candidate"

@@ -160,21 +160,32 @@ def parse_registry(value: object) -> tuple[str, ...]:
     return tuple(sorted(cast(str, namespace) for namespace in namespaces))
 
 
-def parse_validation_artifacts(value: object, namespaces: Sequence[str]) -> dict[str, list[str]]:
-    """Validate the deliberately small, checked-in lifecycle approval format."""
+def parse_validation_artifacts(
+    value: object, namespaces: Sequence[str]
+) -> dict[str, dict[str, list[str]]]:
+    """Validate model-scoped checked-in lifecycle approvals."""
     artifacts = _mapping(value, "validation artifacts")
-    expected = frozenset({"schema_version", "supported", "validated", "promoted"})
+    expected = frozenset({"schema_version", "models"})
     _closed_keys(artifacts, expected, "validation artifacts")
     if artifacts["schema_version"] != "1.0":
         raise ValidationError("validation artifacts have an unsupported schema_version")
-    parsed: dict[str, list[str]] = {}
-    for lifecycle in ("supported", "validated", "promoted"):
-        values = artifacts[lifecycle]
-        if not isinstance(values, list) or not all(isinstance(item, str) for item in values):
-            raise ValidationError(f"validation artifacts {lifecycle} must be a string array")
-        if any(item not in ENUMS["action_kind"] for item in values):
-            raise ValidationError(
-                f"validation artifacts {lifecycle} contains an unsafe action kind"
-            )
-        parsed[lifecycle] = list(values)
+    models = _mapping(artifacts["models"], "validation artifacts models")
+    expected_namespaces = frozenset(namespaces)
+    if set(models) != expected_namespaces:
+        raise ValidationError("validation artifacts models must match the exact registry")
+    parsed: dict[str, dict[str, list[str]]] = {}
+    lifecycle_fields = frozenset({"supported", "validated", "promoted"})
+    for namespace, lifecycle_value in models.items():
+        lifecycle_mapping = _mapping(lifecycle_value, f"validation artifacts {namespace}")
+        _closed_keys(lifecycle_mapping, lifecycle_fields, f"validation artifacts {namespace}")
+        parsed[namespace] = {}
+        for lifecycle in lifecycle_fields:
+            values = lifecycle_mapping[lifecycle]
+            if not isinstance(values, list) or not all(isinstance(item, str) for item in values):
+                raise ValidationError(f"validation artifacts {lifecycle} must be a string array")
+            if any(item not in ENUMS["action_kind"] for item in values):
+                raise ValidationError(
+                    f"validation artifacts {lifecycle} contains an unsafe action kind"
+                )
+            parsed[namespace][lifecycle] = list(values)
     return parsed

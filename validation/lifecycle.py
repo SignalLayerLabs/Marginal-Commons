@@ -8,19 +8,24 @@ from typing import Any
 _LIFECYCLES = ("candidate", "supported", "validated", "promoted")
 
 
-def lifecycle_for(aggregate: Mapping[str, Any], artifacts: Mapping[str, Sequence[str]]) -> str:
+def lifecycle_for(
+    namespace: str,
+    aggregate: Mapping[str, Any],
+    artifacts: Mapping[str, Mapping[str, Sequence[str]]],
+) -> str:
     """Return the highest lifecycle explicitly approved for an aggregate.
 
     Counts deliberately do not participate.  An artifact may name an action
-    kind, which is useful for small reviewed fixtures and remains a bounded,
-    non-free-text identifier under the frozen aggregate schema.
+    kind for one exact model namespace. This keeps reviewed evidence from one
+    public model from becoming a prior for another.
     """
     action_kind = aggregate.get("action_kind")
     if not isinstance(action_kind, str):
         return "candidate"
+    namespace_artifacts = artifacts.get(namespace, {})
     status = "candidate"
     for lifecycle in _LIFECYCLES[1:]:
-        values = artifacts.get(lifecycle, ())
+        values = namespace_artifacts.get(lifecycle, ())
         if action_kind not in values:
             break
         status = lifecycle

@@ -39,7 +39,7 @@ def _read_json(path: Path) -> object:
         raise CommonsBuildError(f"invalid JSON at {path}") from error
 
 
-def _artifacts(root: Path, namespaces: tuple[str, ...]) -> dict[str, list[str]]:
+def _artifacts(root: Path, namespaces: tuple[str, ...]) -> dict[str, dict[str, list[str]]]:
     path = root / "validation" / "artifacts-v1.json"
     if not path.exists():
         return {}
@@ -79,7 +79,7 @@ def compile_pack(root: Path, *, source_commit: str, revision: int) -> dict[str, 
             aggregates = []
             for atom in atoms:
                 assert isinstance(atom, dict)
-                aggregates.append({**atom, "lifecycle": lifecycle_for(atom, artifacts)})
+                aggregates.append({**atom, "lifecycle": lifecycle_for(namespace, atom, artifacts)})
             aggregates.sort(key=canonical_bytes)
             models[namespace] = {"aggregates": aggregates}
     except ValidationError as error:

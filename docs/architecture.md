@@ -6,9 +6,9 @@ registry. A document whose embedded namespace differs from its path is rejected.
 source is merged across namespaces.
 
 The builder assigns `candidate` by default. It may step through `supported`,
-`validated`, and `promoted` only when matching reviewed validation artifacts for every
-preceding transition are checked in. Atom counts are deliberately ignored by lifecycle
-derivation.
+`validated`, and `promoted` only when matching reviewed validation artifacts for the
+same exact namespace and every preceding transition are checked in. Atom counts are
+deliberately ignored by lifecycle derivation.
 
 The builder emits canonical sorted JSON and hashes the canonical payload with the
 `integrity` member omitted. The pack records the input source commit and a positive
