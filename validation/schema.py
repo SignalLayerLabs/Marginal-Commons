@@ -139,7 +139,10 @@ def aggregate_identity(atom: Mapping[str, object]) -> tuple[object, ...]:
 
 
 def parse_aggregate_document(value: object, namespaces: Iterable[str]) -> dict[str, object]:
-    """Validate the Ingress aggregate-file shape, which may have no atoms yet."""
+    """Validate a present Ingress aggregate document, which must contain at least one atom.
+
+    The caller represents an empty model prior by omitting its aggregate file entirely.
+    """
     allowed_namespaces = frozenset(namespaces)
     document = _mapping(value, "aggregate document")
     _closed_keys(document, AGGREGATE_FIELDS, "aggregate document")
