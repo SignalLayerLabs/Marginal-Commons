@@ -1,0 +1,15 @@
+# Validation and release procedure
+
+1. Review the aggregate source and, if lifecycle advancement is proposed, add the
+   required checked-in validation artifacts and regression tests. Counts alone cannot
+   justify a transition.
+2. Commit all source inputs first. Record that commit as the pack `source_commit`.
+3. Build the pack with a positive revision, then commit the generated `dist` update
+   separately. This avoids an impossible self-referential Git commit hash.
+4. Run `python tooling/validate_commons.py`. It checks the frozen contract digests,
+   closed source and pack schemas, namespace isolation, lifecycle derivation, digest,
+   source snapshot, and byte-for-byte rebuild.
+
+No current aggregate source or validation artifact is production evidence; the initial
+sources are intentionally empty. The resulting pack remains a prior only and cannot
+enable or alter MARGINAL enforcement.
