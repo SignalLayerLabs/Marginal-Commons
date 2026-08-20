@@ -3,6 +3,8 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -24,20 +26,26 @@ NAMESPACES = (
     "openai/gpt-5.6-terra",
     "openai/gpt-5.6-luna",
 )
+ROOT = Path(__file__).resolve().parents[1]
 
 
-def _write_sources(root: Path, sol_atoms: list[dict[str, object]]) -> None:
-    registry = {
-        "schema_version": "1.0",
-        "models": {
-            "gpt-5.6-sol": NAMESPACES[0],
-            "gpt-5.6-terra": NAMESPACES[1],
-            "gpt-5.6-luna": NAMESPACES[2],
-        },
-    }
+def _git(root: Path, *arguments: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _write_sources(root: Path, sol_atoms: list[dict[str, object]]) -> str:
+    _git(root, "init", "-q")
+    _git(root, "config", "user.email", "test@example.invalid")
+    _git(root, "config", "user.name", "Commons test")
+    registry = (ROOT / "models" / "canonical-model-registry-v1.json").read_text()
     (root / "models").mkdir()
-    (root / "models" / "registry-v1.json").write_text(json.dumps(registry))
-    (root / "models" / "canonical-model-registry-v1.json").write_text(json.dumps(registry))
+    (root / "models" / "registry-v1.json").write_text(registry)
+    (root / "models" / "canonical-model-registry-v1.json").write_text(registry)
     for namespace in NAMESPACES:
         destination = root / "models" / namespace / "aggregates.json"
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -50,6 +58,18 @@ def _write_sources(root: Path, sol_atoms: list[dict[str, object]]) -> None:
                 }
             )
         )
+    for name in (
+        "commons-contract-v1.manifest.json",
+        "commons-evidence-envelope-v1.json",
+        "commons-evidence-envelope-v1.sha256",
+        "commons-pack-v1.json",
+    ):
+        destination = root / "schemas" / name
+        destination.parent.mkdir(exist_ok=True)
+        shutil.copy2(ROOT / "schemas" / name, destination)
+    _git(root, "add", ".")
+    _git(root, "commit", "-qm", "source")
+    return _git(root, "rev-parse", "HEAD")
 
 
 def test_strict_aggregate_validation_rejects_recursive_poisoning() -> None:
@@ -68,9 +88,9 @@ def test_strict_aggregate_validation_rejects_recursive_poisoning() -> None:
 def test_pack_builder_keeps_namespaces_isolated_and_stable(tmp_path: Path) -> None:
     from tooling.build_pack import canonical_bytes, compile_pack
 
-    _write_sources(tmp_path, [{**ATOM, "count": 999}])
-    first = compile_pack(tmp_path, source_commit="a" * 40, revision=1)
-    second = compile_pack(tmp_path, source_commit="a" * 40, revision=1)
+    source_commit = _write_sources(tmp_path, [{**ATOM, "count": 999}])
+    first = compile_pack(tmp_path, source_commit=source_commit, revision=1)
+    second = compile_pack(tmp_path, source_commit=source_commit, revision=1)
 
     assert canonical_bytes(first) == canonical_bytes(second)
     assert first["models"][NAMESPACES[0]]["aggregates"] == [
@@ -91,6 +111,9 @@ def test_pack_builder_rejects_a_namespace_mismatch_before_compilation(tmp_path: 
     aggregate = json.loads(aggregate_path.read_text())
     aggregate["model_namespace"] = NAMESPACES[1]
     aggregate_path.write_text(json.dumps(aggregate))
+    _git(tmp_path, "add", "models")
+    _git(tmp_path, "commit", "-qm", "namespace mismatch")
+    source_commit = _git(tmp_path, "rev-parse", "HEAD")
 
     with pytest.raises(CommonsBuildError, match="namespace"):
-        compile_pack(tmp_path, source_commit="a" * 40, revision=1)
+        compile_pack(tmp_path, source_commit=source_commit, revision=1)

@@ -11,10 +11,12 @@ def test_repository_validation_detects_a_tampered_pack_and_rebuilds_it(tmp_path:
     from tooling.build_pack import canonical_bytes, compile_pack
     from tooling.validate_commons import CommonsValidationError, validate_repository
 
-    _write_sources(tmp_path, [ATOM])
+    source_commit = _write_sources(tmp_path, [ATOM])
     output = tmp_path / "dist" / "commons-pack-v1.json"
     output.parent.mkdir()
-    output.write_bytes(canonical_bytes(compile_pack(tmp_path, source_commit="a" * 40, revision=1)))
+    output.write_bytes(
+        canonical_bytes(compile_pack(tmp_path, source_commit=source_commit, revision=1))
+    )
 
     validate_repository(tmp_path)
 

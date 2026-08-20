@@ -15,7 +15,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tooling.build_pack import CommonsBuildError, canonical_bytes, compile_pack
-from validation.schema import ATOM_FIELDS, ValidationError, parse_atom
+from validation.schema import ATOM_FIELDS, ValidationError, aggregate_identity, parse_atom
 
 
 class CommonsValidationError(ValueError):
@@ -81,6 +81,7 @@ def validate_pack(value: object) -> dict[str, Any]:
         aggregates = model_mapping["aggregates"]
         if not isinstance(aggregates, list):
             raise CommonsValidationError("pack aggregates must be an array")
+        identities: set[tuple[object, ...]] = set()
         for aggregate in aggregates:
             aggregate_mapping = _mapping(aggregate, "pack aggregate")
             if set(aggregate_mapping) != set(ATOM_FIELDS) | {"lifecycle"}:
@@ -93,11 +94,17 @@ def validate_pack(value: object) -> dict[str, Any]:
             }:
                 raise CommonsValidationError("pack aggregate lifecycle is invalid")
             try:
-                parse_atom(
+                atom = parse_atom(
                     {key: value for key, value in aggregate_mapping.items() if key != "lifecycle"}
                 )
             except ValidationError as error:
                 raise CommonsValidationError(str(error)) from error
+            identity = aggregate_identity(atom)
+            if identity in identities:
+                raise CommonsValidationError(
+                    f"pack has duplicate aggregate dimensions: {namespace}"
+                )
+            identities.add(identity)
     integrity = _mapping(pack["integrity"], "pack integrity")
     _closed(integrity, frozenset({"sha256"}), "pack integrity")
     digest = integrity["sha256"]
@@ -161,7 +168,6 @@ def _validate_source_commit(root: Path, source_commit: str) -> None:
 
 def validate_repository(root: Path) -> None:
     """Prove the checked pack is canonical, digest-valid, and a clean source rebuild."""
-    validate_frozen_contract(root)
     pack_path = root / "dist" / "commons-pack-v1.json"
     try:
         pack_bytes = pack_path.read_bytes()

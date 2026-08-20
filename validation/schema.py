@@ -24,6 +24,7 @@ ATOM_FIELDS = frozenset(
         "minimum_group_size",
     }
 )
+IDENTITY_FIELDS = ATOM_FIELDS - {"count"}
 AGGREGATE_FIELDS = frozenset({"schema_version", "model_namespace", "atoms"})
 ENUMS = {
     "record_type": frozenset({"decision", "outcome"}),
@@ -123,6 +124,20 @@ def parse_atom(value: object) -> dict[str, object]:
     return parsed
 
 
+def parse_aggregate_identity(value: object) -> dict[str, object]:
+    """Validate immutable aggregate dimensions used by reviewed artifacts."""
+    identity = _mapping(value, "aggregate identity")
+    _closed_keys(identity, IDENTITY_FIELDS, "aggregate identity")
+    parsed = parse_atom({**identity, "count": 1})
+    del parsed["count"]
+    return parsed
+
+
+def aggregate_identity(atom: Mapping[str, object]) -> tuple[object, ...]:
+    """Return the canonical dimensions that identify an aggregate, excluding volume."""
+    return tuple(atom[field] for field in sorted(IDENTITY_FIELDS))
+
+
 def parse_aggregate_document(value: object, namespaces: Iterable[str]) -> dict[str, object]:
     """Validate the Ingress aggregate-file shape, which may have no atoms yet."""
     allowed_namespaces = frozenset(namespaces)
@@ -162,7 +177,7 @@ def parse_registry(value: object) -> tuple[str, ...]:
 
 def parse_validation_artifacts(
     value: object, namespaces: Sequence[str]
-) -> dict[str, dict[str, list[str]]]:
+) -> dict[str, dict[str, list[dict[str, object]]]]:
     """Validate model-scoped checked-in lifecycle approvals."""
     artifacts = _mapping(value, "validation artifacts")
     expected = frozenset({"schema_version", "models"})
@@ -173,7 +188,7 @@ def parse_validation_artifacts(
     expected_namespaces = frozenset(namespaces)
     if set(models) != expected_namespaces:
         raise ValidationError("validation artifacts models must match the exact registry")
-    parsed: dict[str, dict[str, list[str]]] = {}
+    parsed: dict[str, dict[str, list[dict[str, object]]]] = {}
     lifecycle_fields = frozenset({"supported", "validated", "promoted"})
     for namespace, lifecycle_value in models.items():
         lifecycle_mapping = _mapping(lifecycle_value, f"validation artifacts {namespace}")
@@ -181,11 +196,7 @@ def parse_validation_artifacts(
         parsed[namespace] = {}
         for lifecycle in lifecycle_fields:
             values = lifecycle_mapping[lifecycle]
-            if not isinstance(values, list) or not all(isinstance(item, str) for item in values):
-                raise ValidationError(f"validation artifacts {lifecycle} must be a string array")
-            if any(item not in ENUMS["action_kind"] for item in values):
-                raise ValidationError(
-                    f"validation artifacts {lifecycle} contains an unsafe action kind"
-                )
-            parsed[namespace][lifecycle] = list(values)
+            if not isinstance(values, list):
+                raise ValidationError(f"validation artifacts {lifecycle} must be an array")
+            parsed[namespace][lifecycle] = [parse_aggregate_identity(item) for item in values]
     return parsed

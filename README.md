@@ -12,15 +12,16 @@ has no local enforcement, promotion, trust, coverage, or Autopilot authority.
 
 ## Contents
 
-- `models/<namespace>/aggregates.json` is the human-readable Ingress-compatible
-  aggregate source for one exact registry namespace.
+- An absent `models/<namespace>/aggregates.json` is the canonical empty source for
+  that exact registry namespace. The first nonempty file is written by Ingress and
+  must use its unchanged closed envelope document shape.
 - `models/registry-v1.json` must exactly match the reviewed Task 1 canonical registry.
 - `tooling/build_pack.py` creates the canonical, digest-protected pack.
 - `tooling/validate_commons.py` checks frozen-contract hashes, schema closure, digest,
   source snapshot, and deterministic rebuild.
 
 The checked-in sources intentionally contain no observations or validation artifacts.
-They are empty initial sources, not synthetic evidence.
+Absent aggregate files are empty initial sources, not synthetic evidence.
 
 ## Local verification
 
@@ -35,7 +36,9 @@ python tooling/validate_commons.py
 ```
 
 To build a pack from a committed source snapshot, pass its exact commit and a positive
-revision:
+revision. The builder reads only regular, tracked bytes from that commit's Git tree;
+working-tree edits cannot affect the pack, and untracked or symlinked source inputs are
+rejected:
 
 ```sh
 python tooling/build_pack.py --source-commit <source-commit> --revision 1
