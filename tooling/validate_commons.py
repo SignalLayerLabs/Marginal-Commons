@@ -193,12 +193,30 @@ def validate_repository(root: Path) -> None:
         raise CommonsValidationError("checked pack is not the deterministic rebuild")
 
 
+def validate_current_sources(root: Path) -> None:
+    """Validate the current committed Commons sources without relying on dist."""
+    head = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "--verify", "HEAD^{commit}"],
+        capture_output=True,
+        env=git_source_environment(root),
+        text=True,
+        check=False,
+    )
+    if head.returncode != 0:
+        raise CommonsValidationError("current Commons source commit is unavailable")
+    source_commit = head.stdout.strip()
+    try:
+        compile_pack(root, source_commit=source_commit, revision=1)
+    except CommonsBuildError as error:
+        raise CommonsValidationError(str(error)) from error
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     arguments = parser.parse_args()
     try:
-        validate_repository(arguments.root.resolve())
+        validate_current_sources(arguments.root.resolve())
     except CommonsValidationError as error:
         parser.error(str(error))
     return 0
