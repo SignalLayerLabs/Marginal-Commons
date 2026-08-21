@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "model_namespace": "openai/gpt-5.6-sol",
+  "atoms": [
+    {
+      "record_type": "outcome",
+      "action_kind": "unknown",
+      "cost_bucket": "unknown",
+      "gain_bucket": "unknown",
+      "recommendation": "not_applicable",
+      "applied_decision": "not_applicable",
+      "reason_code": "not_applicable",
+      "outcome_class": "verified_success",
+      "count": 5,
+      "minimum_group_size": 5
+    }
+  ]
+}
