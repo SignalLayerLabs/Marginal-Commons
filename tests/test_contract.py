@@ -15,6 +15,7 @@ NAMESPACES = (
     "openai/gpt-5.6-sol",
     "openai/gpt-5.6-terra",
     "openai/gpt-5.6-luna",
+    "openai/gpt-6-astra",
 )
 IDEMPOTENCY_KEY_PATTERN = re.compile(r"^[A-Za-z0-9_-]{32,64}$")
 
@@ -80,6 +81,7 @@ def test_commons_accepts_only_exact_registry_entries() -> None:
     assert registry == {
         "schema_version": "1.0",
         "models": {
+            "gpt-6-astra": "openai/gpt-6-astra",
             "gpt-5.6-sol": "openai/gpt-5.6-sol",
             "gpt-5.6-terra": "openai/gpt-5.6-terra",
             "gpt-5.6-luna": "openai/gpt-5.6-luna",
@@ -122,6 +124,23 @@ def test_commons_pack_is_closed_and_model_partitioned() -> None:
         candidate = copy.deepcopy(pack)
         mutation(candidate)
         _assert_invalid(validator, candidate)
+
+
+def test_commons_pack_accepts_a_pre_astra_model_set() -> None:
+    pack = {
+        "schema_version": "1.0",
+        "source_commit": "a" * 40,
+        "commons_revision": 1,
+        "compatibility": {"evidence_envelope_schema_version": "1.0"},
+        "models": {
+            namespace: {"aggregates": []}
+            for namespace in NAMESPACES
+            if namespace != "openai/gpt-6-astra"
+        },
+        "integrity": {"sha256": "b" * 64},
+    }
+
+    _validator("commons-pack-v1.json").validate(pack)
 
 
 @pytest.mark.parametrize("key", ["a" * 31, "a" * 65, "a" * 32 + "+", "a" * 31 + "="])

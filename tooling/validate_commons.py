@@ -37,13 +37,14 @@ _PACK_FIELDS = frozenset(
         "integrity",
     }
 )
-_NAMESPACES = frozenset(
+_REQUIRED_NAMESPACES = frozenset(
     {
         "openai/gpt-5.6-sol",
         "openai/gpt-5.6-terra",
         "openai/gpt-5.6-luna",
     }
 )
+_NAMESPACES = _REQUIRED_NAMESPACES | {"openai/gpt-6-astra"}
 
 
 def _mapping(value: object, name: str) -> Mapping[str, object]:
@@ -78,7 +79,7 @@ def validate_pack(value: object) -> dict[str, Any]:
     if compatibility["evidence_envelope_schema_version"] != "1.0":
         raise CommonsValidationError("pack compatibility is invalid")
     models = _mapping(pack["models"], "pack models")
-    if set(models) != _NAMESPACES:
+    if not _REQUIRED_NAMESPACES.issubset(models) or not set(models).issubset(_NAMESPACES):
         raise CommonsValidationError("pack models are not the exact registry namespaces")
     for namespace, model in models.items():
         model_mapping = _mapping(model, f"pack model {namespace}")

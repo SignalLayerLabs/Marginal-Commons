@@ -25,6 +25,7 @@ NAMESPACES = (
     "openai/gpt-5.6-sol",
     "openai/gpt-5.6-terra",
     "openai/gpt-5.6-luna",
+    "openai/gpt-6-astra",
 )
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -98,6 +99,7 @@ def test_pack_builder_keeps_namespaces_isolated_and_stable(tmp_path: Path) -> No
     ]
     assert first["models"][NAMESPACES[1]]["aggregates"] == []
     assert first["models"][NAMESPACES[2]]["aggregates"] == []
+    assert first["models"][NAMESPACES[3]]["aggregates"] == []
     payload = copy.deepcopy(first)
     del payload["integrity"]
     assert first["integrity"]["sha256"] == hashlib.sha256(canonical_bytes(payload)).hexdigest()
